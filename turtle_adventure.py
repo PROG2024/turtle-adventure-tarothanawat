@@ -4,6 +4,7 @@ adventure game.
 """
 from turtle import RawTurtle
 from gamelib import Game, GameElement
+import random
 
 
 class TurtleGameElement(GameElement):
@@ -253,23 +254,128 @@ class DemoEnemy(Enemy):
     Demo enemy
     """
 
-    def __init__(self,
-                 game: "TurtleAdventureGame",
-                 size: int,
-                 color: str):
+    def __init__(self, game: "TurtleAdventureGame", size: int, color: str, speed:float):
         super().__init__(game, size, color)
+        self.__id = None
+        self.__direction = 1
+        self.__speed = speed
 
     def create(self) -> None:
-        pass
+        self.__id = self.canvas.create_oval(0, 0, 0, 0, fill=self.color)
 
     def update(self) -> None:
-        pass
+        new_x = self.x + self.__speed * self.__direction
+        if 0 <= new_x <= self.game.screen_width:
+            self.x = new_x
+        else:
+            # Change direction if enemy reaches the edge of the screen
+            self.__direction *= -1
+        if self.hits_player():
+            self.game.game_over_lose()
 
     def render(self) -> None:
-        pass
+        self.canvas.coords(self.__id,
+                           self.x - self.size / 2,
+                           self.y - self.size / 2,
+                           self.x + self.size / 2,
+                           self.y + self.size / 2)
 
     def delete(self) -> None:
-        pass
+        self.canvas.delete(self.__id)
+
+
+class ChasingEnemy(Enemy):
+    """
+    An enemy that moves randomly on the screen.
+    """
+
+    def __init__(self, game: "TurtleAdventureGame", size: int, color: str, speed: float, player: Player):
+        super().__init__(game, size, color)
+        self.__id = None
+        self.__speed = speed
+        self.__current_direction = None
+        self.__time_since_direction_change = 0
+        self.__player = player
+
+    def update(self) -> None:
+        """
+        Update the position of the enemy by moving randomly.
+        """
+        player_x, player_y = self.__player.x, self.__player.y
+        if self.x > self.__player:
+            pass
+
+        if self.hits_player():
+            self.game.game_over_lose()
+
+    def create(self) -> None:
+        self.__id = self.canvas.create_oval(0, 0, 0, 0, fill=self.color)
+
+    def render(self) -> None:
+        self.canvas.coords(self.__id,
+                           self.x - self.size / 2,
+                           self.y - self.size / 2,
+                           self.x + self.size / 2,
+                           self.y + self.size / 2)
+
+    def delete(self) -> None:
+        self.canvas.delete(self.__id)
+
+class RandomWalkEnemy(Enemy):
+    """
+    An enemy that moves randomly on the screen.
+    """
+
+    def __init__(self, game: "TurtleAdventureGame", size: int, color: str, speed:float, direction_change_delay: int):
+        super().__init__(game, size, color)
+        self.__id = None
+        self.__speed = speed
+        self.__direction_change_delay = direction_change_delay
+        self.__current_direction = None
+        self.__time_since_direction_change = 0
+        self.__current_direction = random.choice(["up", "down", "left", "right"])
+
+    def update(self) -> None:
+        """
+        Update the position of the enemy by moving randomly.
+        """
+
+        self.__time_since_direction_change += 1
+        if self.__time_since_direction_change >= self.__direction_change_delay:
+            self.__current_direction = random.choice(["up", "down", "left", "right"])
+            self.__time_since_direction_change = 0
+
+        # Move the enemy in the chosen direction by its speed
+        if self.__current_direction == "up":
+            self.y -= self.__speed
+        elif self.__current_direction == "down":
+            self.y += self.__speed
+        elif self.__current_direction == "left":
+            self.x -= self.__speed
+        elif self.__current_direction == "right":
+            self.x += self.__speed
+
+        # Check if the enemy has hit a wall and reverse direction if it has
+        if self.x <= 0 or self.x >= self.game.screen_width:
+            self.__current_direction = "left" if self.__current_direction == "right" else "right"
+        if self.y <= 0 or self.y >= self.game.screen_height:
+            self.__current_direction = "up" if self.__current_direction == "down" else "down"
+
+        if self.hits_player():
+            self.game.game_over_lose()
+
+    def create(self) -> None:
+        self.__id = self.canvas.create_oval(0, 0, 0, 0, fill=self.color)
+
+    def render(self) -> None:
+        self.canvas.coords(self.__id,
+                           self.x - self.size / 2,
+                           self.y - self.size / 2,
+                           self.x + self.size / 2,
+                           self.y + self.size / 2)
+
+    def delete(self) -> None:
+        self.canvas.delete(self.__id)
 
 
 # TODO
@@ -289,7 +395,7 @@ class EnemyGenerator:
     def __init__(self, game: "TurtleAdventureGame", level: int):
         self.__game: TurtleAdventureGame = game
         self.__level: int = level
-
+        self.__player = self.__game.player
         # example
         self.__game.after(100, self.create_enemy)
 
@@ -311,10 +417,15 @@ class EnemyGenerator:
         """
         Create a new enemy, possibly based on the game level
         """
-        new_enemy = DemoEnemy(self.__game, 20, "red")
-        new_enemy.x = 100
-        new_enemy.y = 100
-        self.game.add_element(new_enemy)
+        # new_enemy = DemoEnemy(self.__game, 20, "red", 2.5)
+        # new_enemy.x = 100
+        # new_enemy.y = 100
+
+        random_walk_enemy = RandomWalkEnemy(self.__game, 50, "purple", 8, 13)
+        random_walk_enemy.x = random.randint(150, 700)
+        random_walk_enemy.y = random.randint(150, 400)
+        # self.game.add_element(new_enemy)
+        self.game.add_element(random_walk_enemy)
 
 
 class TurtleAdventureGame(Game): # pylint: disable=too-many-ancestors
